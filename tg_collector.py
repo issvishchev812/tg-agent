@@ -2,8 +2,8 @@ import asyncio
 
 from telethon import TelegramClient
 
-from config import API_ID, API_HASH, CHANNELS
-from state import load_state, save_state
+from config import API_ID, API_HASH, CHANNELS, KEYWORDS
+from state import load_state, save_state, get_text_hash, load_processed
 
 
 client = TelegramClient("news_session", API_ID, API_HASH)
@@ -14,6 +14,9 @@ async def collect_telegram():
 
     posts = []
     state = load_state()
+
+    processed = load_processed()
+    seen = set()
 
     print("2. Загружено состояние:", state, flush=True)
 
@@ -34,21 +37,32 @@ async def collect_telegram():
             messages = await asyncio.wait_for(
                 client.get_messages(
                     entity,
-                    limit=20,
-                    min_id=last_id
+                    limit=10,
+                    min_id=last_id,
+                    reverse=True
                 ),
                 timeout=30
             )
 
             max_id = last_id
 
-            for message in reversed(messages):
+            for message in messages:
 
-                # Запоминаем ID даже у публикаций без текста
                 max_id = max(max_id, message.id)
 
                 if not message.message:
                     continue
+
+                text = message.message.lower()
+
+                if not(any(keyword.lower() in text for keyword in KEYWORDS)):
+                    continue
+
+                text_hash = get_text_hash(text)
+                if text_hash in processed or text_hash in seen:
+                    continue
+
+                seen.add(text)
 
                 username = getattr(entity, "username", None)
 
@@ -63,10 +77,10 @@ async def collect_telegram():
                     "external_id": str(message.id),
                     "text": message.message,
                     "url": url,
-                    "published_at": message.date.isoformat()
+                    "published_at": message.date.isoformat(),
+                    "text_hash": text_hash
                 })
 
-            # Обновляем состояние канала
             if max_id > last_id:
                 state[channel] = max_id
 
@@ -78,7 +92,6 @@ async def collect_telegram():
         except Exception as e:
             print(f"Ошибка канала {channel}: {e}", flush=True)
 
-    # Сохраняем состояние всех каналов
     save_state(state)
 
     print("7. Состояние сохранено:", state, flush=True)
