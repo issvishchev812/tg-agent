@@ -69,3 +69,7 @@ KEYWORDS = [
     "блокировка Facebook",
     "блокировка Twitter",
 ]
+
+API_KEY = os.getenv("OR_API_KEY")
+
+MODEL = os.getenv("OPENROUTER_MODEL")
