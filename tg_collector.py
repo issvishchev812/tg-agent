@@ -7,7 +7,6 @@ from state import load_state, save_state, get_text_hash, load_processed, mark_as
 
 from llm_processor import analyze_text
 
-
 client = TelegramClient("news_session", API_ID, API_HASH)
 
 
@@ -36,15 +35,10 @@ async def collect_telegram():
 
             print(f"Последний сохранённый ID: {last_id}", flush=True)
 
-            messages = await asyncio.wait_for(
-                client.get_messages(
-                    entity,
-                    limit=50,
-                    min_id=last_id,
-                    reverse=True
-                ),
+            messages = list(reversed(await asyncio.wait_for(
+                client.get_messages(entity, limit=5),
                 timeout=30
-            )
+            )))
 
             last_processed_id = last_id
 

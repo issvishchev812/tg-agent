@@ -73,3 +73,6 @@ KEYWORDS = [
 API_KEY = os.getenv("OR_API_KEY")
 
 MODEL = os.getenv("OPENROUTER_MODEL")
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
