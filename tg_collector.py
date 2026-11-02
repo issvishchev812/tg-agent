@@ -36,7 +36,7 @@ async def collect_telegram():
             print(f"Последний сохранённый ID: {last_id}", flush=True)
 
             messages = list(reversed(await asyncio.wait_for(
-                client.get_messages(entity, limit=5),
+                client.get_messages(entity, limit=10),
                 timeout=30
             )))
 
