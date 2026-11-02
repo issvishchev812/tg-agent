@@ -46,36 +46,47 @@ async def collect_telegram():
                 timeout=30
             )
 
-            max_id = last_id
+            last_processed_id = last_id
 
             for message in messages:
 
                 if not message.message:
+                    last_processed_id = message.id
                     continue
 
                 text = message.message.lower()
 
-                if not(any(keyword.lower() in text for keyword in KEYWORDS)):
+                if not any(keyword.lower() in text for keyword in KEYWORDS):
+                    last_processed_id = message.id
                     continue
 
                 text_hash = get_text_hash(text)
-                if text_hash in processed or text_hash in seen:
-                    continue
 
-                seen.add(text_hash)
+                if text_hash in processed or text_hash in seen:
+                    last_processed_id = message.id
+                    continue
 
                 try:
                     analysis = analyze_text(text)
 
-                    mark_as_processed(text_hash)
-                    if not analysis['relevant']:
-                        print(f"Нерелевантная новость: {channel}, ID {message.id}")
-                        continue
-                except Exception as e:
-                    print(f"Ошибка анализа новости {channel}, ID {message.id}: {e}")
-                    continue
+                    if not isinstance(analysis, dict) or "relevant" not in analysis:
+                        raise ValueError("Некорректный ответ LLM")
 
-                max_id = max(max_id, message.id)
+                    mark_as_processed(text_hash)
+
+                except Exception as e:
+                    print(
+                        f"Ошибка анализа новости {channel}, ID {message.id}: {e}",
+                        flush=True
+                    )
+                    break
+
+                seen.add(text_hash)
+                last_processed_id = message.id
+
+                if not analysis["relevant"]:
+                    print(f"Нерелевантная новость: {channel}, ID {message.id}")
+                    continue
 
                 username = getattr(entity, "username", None)
 
@@ -91,19 +102,23 @@ async def collect_telegram():
                     "text": message.message,
                     "url": url,
                     "published_at": message.date.isoformat(),
-                    "text_hash": text_hash
+                    "text_hash": text_hash,
+                    "relevant": analysis["relevant"],
+                    "summary": analysis.get("summary", ""),
+                    "reason": analysis.get("reason", "")
                 })
 
-            if max_id > last_id:
-                state[channel] = max_id
+            if last_processed_id > last_id:
+                state[channel] = last_processed_id
 
                 print(
-                    f"Новый ID для {channel}: {max_id}",
+                    f"Новый ID для {channel}: {last_processed_id}",
                     flush=True
                 )
 
         except Exception as e:
             print(f"Ошибка канала {channel}: {e}", flush=True)
+            continue
 
     save_state(state)
 
