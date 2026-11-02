@@ -3,7 +3,9 @@ import asyncio
 from telethon import TelegramClient
 
 from config import API_ID, API_HASH, CHANNELS, KEYWORDS
-from state import load_state, save_state, get_text_hash, load_processed
+from state import load_state, save_state, get_text_hash, load_processed, mark_as_processed
+
+from llm_processor import analyze_text
 
 
 client = TelegramClient("news_session", API_ID, API_HASH)
@@ -37,7 +39,7 @@ async def collect_telegram():
             messages = await asyncio.wait_for(
                 client.get_messages(
                     entity,
-                    limit=10,
+                    limit=50,
                     min_id=last_id,
                     reverse=True
                 ),
@@ -63,6 +65,17 @@ async def collect_telegram():
                     continue
 
                 seen.add(text)
+
+                try:
+                    analysis = analyze_text(text)
+
+                    mark_as_processed(text_hash)
+                    if not analysis['relevant']:
+                        print(f"Нерелевантная новость: {channel}, ID {message.id}")
+                        continue
+                except Exception as e:
+                    print(f"Ошибка анализа новости {channel}, ID {message.id}: {e}")
+                    continue
 
                 username = getattr(entity, "username", None)
 

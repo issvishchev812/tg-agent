@@ -11,10 +11,13 @@ async def test_llm():
 
         result = analyze_text(new)
 
-        print("Результат:", result)
-        print("Релевантность:", result["relevant"])
-        print("Выжимка:", result["summary"])
-        print("Причина:", result["reason"])
+        if result["relevant"]:
 
+            print("Результат:", result)
+            print("Релевантность:", result["relevant"])
+            print("Выжимка:", result["summary"])
+            print("Причина:", result["reason"])
+        else:
+            print('Нерелевантный текст')
 
 asyncio.run(test_llm())
