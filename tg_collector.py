@@ -50,8 +50,6 @@ async def collect_telegram():
 
             for message in messages:
 
-                max_id = max(max_id, message.id)
-
                 if not message.message:
                     continue
 
@@ -64,7 +62,7 @@ async def collect_telegram():
                 if text_hash in processed or text_hash in seen:
                     continue
 
-                seen.add(text)
+                seen.add(text_hash)
 
                 try:
                     analysis = analyze_text(text)
@@ -76,6 +74,8 @@ async def collect_telegram():
                 except Exception as e:
                     print(f"Ошибка анализа новости {channel}, ID {message.id}: {e}")
                     continue
+
+                max_id = max(max_id, message.id)
 
                 username = getattr(entity, "username", None)
 

@@ -6,7 +6,7 @@ from openrouter import OpenRouter
 
 def analyze_text(text):
     if not API_KEY:
-        raise ValueError('Не найден OPENROUTER_API_KEY в .env')
+        raise ValueError('Не найден OR_API_KEY в .env')
 
     prompt = f"""
     Ты анализируешь новости для мониторинга блокировок
