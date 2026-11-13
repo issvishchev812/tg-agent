@@ -1,8 +1,9 @@
 import asyncio
 
 from telethon import TelegramClient
+from telethon.errors import FloodWaitError
 
-from config import API_ID, API_HASH, CHANNELS, KEYWORDS
+from config import API_ID, API_HASH, CHANNELS, KEYWORDS, BATCH_SIZE
 from state import load_state, save_state, get_text_hash, load_processed, mark_as_processed
 
 from llm_processor import analyze_text
@@ -25,11 +26,17 @@ async def collect_telegram():
 
     print("3. Подключились к Telegram!", flush=True)
 
-    for channel in CHANNELS:
+    batch_index = state.get("_batch_index", 0)
+    start = batch_index * BATCH_SIZE
+    batch = CHANNELS[start:start + BATCH_SIZE]
+
+    flood_waited = False
+
+    for channel in batch:
         print(f"4. Обрабатываем канал: {channel}", flush=True)
 
         try:
-            entity = await client.get_entity(channel)
+            entity = await client.get_input_entity(channel)
 
             last_id = state.get(channel, 0)
 
@@ -99,6 +106,7 @@ async def collect_telegram():
                     "text_hash": text_hash,
                     "relevant": analysis["relevant"],
                     "summary": analysis.get("summary", ""),
+                    "category": analysis.get("category", ""),
                     "reason": analysis.get("reason", "")
                 })
 
@@ -110,13 +118,28 @@ async def collect_telegram():
                     flush=True
                 )
 
+
+        except FloodWaitError as e:
+            flood_waited = True
+            print(
+                f"Telegram ограничил запросы. Нужно подождать {e.seconds} секунд. "
+                "Останавливаем сбор до следующего запуска.",
+                flush=True
+            )
+            break
+
         except Exception as e:
             print(f"Ошибка канала {channel}: {e}", flush=True)
             continue
 
     save_state(state)
 
-    print("7. Состояние сохранено:", state, flush=True)
-    print(f"Всего публикаций: {len(posts)}", flush=True)
+    if not flood_waited:
+        batch_index = (batch_index + 1) % ((len(CHANNELS) + BATCH_SIZE - 1) // BATCH_SIZE)
+
+    state["_batch_index"] = batch_index
+
+    save_state(state)
+    print(f"7. Состояние сохранено. Следующая группа: {batch_index + 1}", flush=True)
 
     return posts

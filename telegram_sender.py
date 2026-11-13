@@ -12,6 +12,7 @@ def send_news(post):
 
     summary = html.escape(post.get("summary") or post.get("text", "")[:500])
     source = html.escape(post.get("source", "Неизвестный источник"))
+    category = html.escape(post.get("category", ""))
     reason = html.escape(post.get("reason", ""))
     url = post.get("url")
 

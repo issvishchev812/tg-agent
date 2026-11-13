@@ -4,5 +4,3 @@
 *.sqlite3
 __pycache__/
 .venv/
-state.json
-processed.json
