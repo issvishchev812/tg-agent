@@ -1,10 +1,11 @@
 import asyncio
+import time
 
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
 
 from config import API_ID, API_HASH, CHANNELS, KEYWORDS, BATCH_SIZE
-from state import load_state, save_state, get_text_hash, load_processed, mark_as_processed
+from state import load_state, save_state, get_text_hash, load_processed
 
 from llm_processor import analyze_text
 
@@ -16,6 +17,15 @@ async def collect_telegram():
 
     posts = []
     state = load_state()
+
+    wait_until = state.get("_flood_wait_until", 0)
+    if time.time() < wait_until:
+        remaining = int(wait_until - time.time())
+        print(
+            f"Telegram на паузе. Осталось ждать {remaining} секунд.",
+            flush=True
+        )
+        return []
 
     processed = load_processed()
     seen = set()
@@ -73,7 +83,7 @@ async def collect_telegram():
                     if not isinstance(analysis, dict) or "relevant" not in analysis:
                         raise ValueError("Некорректный ответ LLM")
 
-                    mark_as_processed(text_hash)
+
 
                 except Exception as e:
                     print(
@@ -84,12 +94,13 @@ async def collect_telegram():
 
                 seen.add(text_hash)
                 last_processed_id = message.id
+                posts_before = len(posts)
 
                 if not analysis["relevant"]:
                     print(f"Нерелевантная новость: {channel}, ID {message.id}")
                     continue
 
-                username = getattr(entity, "username", None)
+                username = channel.lstrip("@") if isinstance(channel, str) else None
 
                 url = (
                     f"https://t.me/{username}/{message.id}"
@@ -100,6 +111,7 @@ async def collect_telegram():
                     "source": channel,
                     "source_type": "telegram",
                     "external_id": str(message.id),
+                    "message_id": message.id,
                     "text": message.message,
                     "url": url,
                     "published_at": message.date.isoformat(),
@@ -110,7 +122,7 @@ async def collect_telegram():
                     "reason": analysis.get("reason", "")
                 })
 
-            if last_processed_id > last_id:
+            if last_processed_id > last_id and len(posts) == posts_before:
                 state[channel] = last_processed_id
 
                 print(
@@ -121,6 +133,7 @@ async def collect_telegram():
 
         except FloodWaitError as e:
             flood_waited = True
+            state["_flood_wait_until"] = time.time() + e.seconds
             print(
                 f"Telegram ограничил запросы. Нужно подождать {e.seconds} секунд. "
                 "Останавливаем сбор до следующего запуска.",
@@ -136,6 +149,7 @@ async def collect_telegram():
 
     if not flood_waited:
         batch_index = (batch_index + 1) % ((len(CHANNELS) + BATCH_SIZE - 1) // BATCH_SIZE)
+        state.pop("_flood_wait_until", None)
 
     state["_batch_index"] = batch_index
 

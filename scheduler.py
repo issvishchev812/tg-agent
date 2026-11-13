@@ -1,8 +1,7 @@
 import asyncio
 import time
 from run import main
-
-INTERVAL = 600
+from config import INTERVAL
 
 
 async def scheduler():

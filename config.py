@@ -169,4 +169,7 @@ SYSTEM_PROMPT = """
 
 Ниже новость для анализа:
 """
+
 BATCH_SIZE = 50
+
+INTERVAL = 600
