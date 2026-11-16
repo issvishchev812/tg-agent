@@ -32,7 +32,18 @@ async def collect_telegram():
 
     print("2. Загружено состояние:", state, flush=True)
 
-    await client.start()
+    try:
+        await client.start()
+
+    except FloodWaitError as e:
+        state["_flood_wait_until"] = time.time() + e.seconds
+        save_state(state)
+
+        print(
+            f"Ограничение при подключении. Ждём {e.seconds} секунд.",
+            flush=True
+        )
+        return []
 
     print("3. Подключились к Telegram!", flush=True)
 
@@ -46,6 +57,8 @@ async def collect_telegram():
         print(f"4. Обрабатываем канал: {channel}", flush=True)
 
         try:
+            await asyncio.sleep(8)
+
             entity = await client.get_input_entity(channel)
 
             last_id = state.get(channel, 0)
@@ -53,7 +66,7 @@ async def collect_telegram():
             print(f"Последний сохранённый ID: {last_id}", flush=True)
 
             messages = list(reversed(await asyncio.wait_for(
-                client.get_messages(entity, limit=10),
+                client.get_messages(entity, limit=5),
                 timeout=30
             )))
 
@@ -94,7 +107,6 @@ async def collect_telegram():
 
                 seen.add(text_hash)
                 last_processed_id = message.id
-                posts_before = len(posts)
 
                 if not analysis["relevant"]:
                     print(f"Нерелевантная новость: {channel}, ID {message.id}")
@@ -122,13 +134,15 @@ async def collect_telegram():
                     "reason": analysis.get("reason", "")
                 })
 
-            if last_processed_id > last_id and len(posts) == posts_before:
+            if last_processed_id > last_id:
                 state[channel] = last_processed_id
 
                 print(
                     f"Новый ID для {channel}: {last_processed_id}",
                     flush=True
                 )
+
+                save_state(state)
 
 
         except FloodWaitError as e:
@@ -147,8 +161,13 @@ async def collect_telegram():
 
     save_state(state)
 
+    total_batches = (len(CHANNELS) + BATCH_SIZE - 1) // BATCH_SIZE
+
+    # Всегда переходим к следующей группе
+    batch_index = (batch_index + 1) % total_batches
+
+    # Снимаем ограничение только если FloodWait не возник
     if not flood_waited:
-        batch_index = (batch_index + 1) % ((len(CHANNELS) + BATCH_SIZE - 1) // BATCH_SIZE)
         state.pop("_flood_wait_until", None)
 
     state["_batch_index"] = batch_index
