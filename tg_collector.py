@@ -94,6 +94,15 @@ async def collect_telegram():
                 try:
                     analysis = analyze_text(text)
 
+                    print(
+                        f"РЕЗУЛЬТАТ LLM: канал={channel}, "
+                        f"ID={message.id}, "
+                        f"relevant={analysis.get('relevant')}, "
+                        f"category={analysis.get('category')!r}, "
+                        f"summary={analysis.get('summary')!r}",
+                        flush=True
+                    )
+
                     if not isinstance(analysis, dict) or "relevant" not in analysis:
                         raise ValueError("Некорректный ответ LLM")
 

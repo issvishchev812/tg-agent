@@ -11,6 +11,13 @@ async def main():
 
     for post in posts:
         try:
+            print(
+                f"НОВОСТЬ: ID={post.get('message_id')}, "
+                f"категория={post.get('category')!r}, "
+                f"источник={post.get('source')}, "
+                f"текст={post.get('summary')}"
+            )
+
             send_news(post)
 
             mark_as_processed(post["text_hash"])
