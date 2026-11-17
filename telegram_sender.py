@@ -24,6 +24,9 @@ def send_news(post):
     if reason:
         parts.append(f"<i>{reason}</i>")
 
+    if reason:
+        parts.append(f"<i>{category}</i>")
+
     if url:
         parts.append(f'<a href="{html.escape(url, quote=True)}">Открыть оригинал</a>')
 

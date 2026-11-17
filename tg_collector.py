@@ -52,8 +52,9 @@ async def collect_telegram():
     batch = CHANNELS[start:start + BATCH_SIZE]
 
     flood_waited = False
+    channel_index = state.get("_channel_index", 0)
 
-    for channel in batch:
+    for channel_offset, channel in enumerate(batch[channel_index:], start=channel_index):
         print(f"4. Обрабатываем канал: {channel}", flush=True)
 
         try:
@@ -95,8 +96,6 @@ async def collect_telegram():
 
                     if not isinstance(analysis, dict) or "relevant" not in analysis:
                         raise ValueError("Некорректный ответ LLM")
-
-
 
                 except Exception as e:
                     print(
@@ -144,6 +143,10 @@ async def collect_telegram():
 
                 save_state(state)
 
+            channel_index = channel_offset + 1
+            state["_channel_index"] = channel_index
+            save_state(state)
+
 
         except FloodWaitError as e:
             flood_waited = True
@@ -155,24 +158,34 @@ async def collect_telegram():
             )
             break
 
+
         except Exception as e:
             print(f"Ошибка канала {channel}: {e}", flush=True)
+            channel_index = channel_offset + 1
+            state["_channel_index"] = channel_index
+            save_state(state)
             continue
 
     save_state(state)
 
     total_batches = (len(CHANNELS) + BATCH_SIZE - 1) // BATCH_SIZE
 
-    # Всегда переходим к следующей группе
-    batch_index = (batch_index + 1) % total_batches
+    if not flood_waited:
+        batch_index = (batch_index + 1) % total_batches
+        state["_channel_index"] = 0
+    else:
+        state["_channel_index"] = channel_index
 
-    # Снимаем ограничение только если FloodWait не возник
     if not flood_waited:
         state.pop("_flood_wait_until", None)
 
     state["_batch_index"] = batch_index
-
     save_state(state)
-    print(f"7. Состояние сохранено. Следующая группа: {batch_index + 1}", flush=True)
+
+    print(
+        f"Состояние сохранено. Группа: {batch_index + 1}, "
+        f"следующий канал: {state['_channel_index'] + 1}",
+        flush=True
+    )
 
     return posts

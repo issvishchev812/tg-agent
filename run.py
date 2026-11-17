@@ -11,7 +11,7 @@ async def main():
 
     for post in posts:
         try:
-            # send_news(post)
+            send_news(post)
 
             mark_as_processed(post["text_hash"])
 
